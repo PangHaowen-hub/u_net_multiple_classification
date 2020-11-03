@@ -1,3 +1,4 @@
+import torch
 import torch.utils.data as data
 import os
 import PIL.Image as Image
@@ -33,17 +34,17 @@ class MyDataset(data.Dataset):
         image = Image.open(images_path)
         mask = Image.open(masks_path)
         mask = np.array(mask)
-        mask = np.expand_dims(mask, axis=2)
-        semantic_map = []
-        palette = [[0], [42], [85], [127], [170], [255]]
-        for colour in palette:
-            equality = np.equal(mask, colour)
-            class_map = np.all(equality, axis=-1)
-            semantic_map.append(class_map)
-        mask = np.stack(semantic_map, axis=-1).astype(np.float32)
+        # [0], [42], [85], [127], [170], [255]
+        # 将mask转化为0-5格式 需要改
+        mask[mask == 0] = 0
+        mask[mask == 42] = 1
+        mask[mask == 85] = 2
+        mask[mask == 127] = 3
+        mask[mask == 170] = 4
+        mask[mask == 255] = 5
         image = self.images_transform(image)
         mask = self.masks_transform(mask)
-        return image, mask, images_path, masks_path
+        return image, mask.type(torch.LongTensor), images_path, masks_path
 
     def __len__(self):
         return len(self.imgs)

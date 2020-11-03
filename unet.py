@@ -64,5 +64,4 @@ class UNet(nn.Module):
         c9 = self.conv9(merge9)
         c10 = self.conv10(c9)
 
-        out = torch.sigmoid(c10)
-        return out
+        return c10

@@ -7,10 +7,12 @@ from torch.utils.data import DataLoader
 import numpy as np
 import cv2
 
+
 def train(model):
     model.train()
     batch_size = args.batch_size
-    loss_fn = torch.nn.BCELoss()
+    # loss_fn = torch.nn.BCELoss()  # 二分类
+    loss_fn = torch.nn.CrossEntropyLoss()  # 多分类
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     train_dataset = MyDataset("data/train/imgs", "data/train/masks")
 
@@ -25,7 +27,7 @@ def train(model):
             inputs = x.to(device)
             labels = y.to(device)
             outputs = model(inputs)
-            loss = loss_fn(outputs, labels)
+            loss = loss_fn(outputs, torch.squeeze(labels, 1))
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -40,22 +42,24 @@ def test(model):
     model.eval()
     test_dataset = TestDataset("data/test/imgs")
     test_dataloader = DataLoader(test_dataset)
-    palette = [[0], [42], [85], [127], [170], [255]]
+
     with torch.no_grad():
         for x, x_path in test_dataloader:
             y = model(x.to(device))
-            img_y = torch.squeeze(y).to('cpu').numpy() > 0.5
-            img_y = img_y.transpose([1, 2, 0])
-            img_y = onehot_to_mask(img_y, palette)
+            img_y = torch.squeeze(y)
+            img_y = torch.max(img_y, 0)[0]
+            img_y = img_y.ceil()
+
             print(x_path)
-            cv2.imwrite(x_path[0][0:-4] + '_pred.png', img_y)
-
-
-def onehot_to_mask(mask, palette):
-    x = np.argmax(mask, axis=-1)
-    colour_codes = np.array(palette)
-    x = np.uint8(colour_codes[x.astype(np.uint8)])
-    return x
+            img_y[img_y == 0] = 0
+            img_y[img_y == 1] = 42
+            img_y[img_y == 2] = 85
+            img_y[img_y == 3] = 127
+            img_y[img_y == 4] = 170
+            img_y[img_y == 5] = 255
+            img_y = img_y.cpu().to(torch.uint8)
+            img = np.asarray(img_y)
+            cv2.imwrite(x_path[0][0:-4] + '_pred.png', img)
 
 
 if __name__ == '__main__':
@@ -63,7 +67,7 @@ if __name__ == '__main__':
     model = unet.UNet(1, 6).to(device)
     parser = argparse.ArgumentParser()
     parser.add_argument('--type', dest='type', type=str, default='train', help='train or test')
-    parser.add_argument('--batch_size', dest='batch_size', type=int, default=4, help='batch_size')
+    parser.add_argument('--batch_size', dest='batch_size', type=int, default=1, help='batch_size')
     parser.add_argument('--load', dest='load', type=str, help='the path of the .pth file')
     parser.add_argument('--epoch', dest='num_epochs', type=int, default=20, help='num_epochs')
     parser.add_argument('--lr', dest='learning_rate', type=float, default=1e-3, help='learning_rate')
