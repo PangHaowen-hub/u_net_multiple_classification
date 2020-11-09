@@ -51,7 +51,7 @@ class UNet(nn.Module):
         p4 = self.pool4(c4)
         c5 = self.conv5(p4)
         up_6 = self.up6(c5)
-        merge6 = torch.cat([up_6, c4], dim=1)  # dim=1 横着拼接
+        merge6 = torch.cat([up_6, c4], dim=1)  # dim=1
         c6 = self.conv6(merge6)
         up_7 = self.up7(c6)
         merge7 = torch.cat([up_7, c3], dim=1)
@@ -64,4 +64,5 @@ class UNet(nn.Module):
         c9 = self.conv9(merge9)
         c10 = self.conv10(c9)
 
-        return c10
+        out = torch.sigmoid(c10)
+        return out
