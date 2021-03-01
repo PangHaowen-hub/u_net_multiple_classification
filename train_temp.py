@@ -11,9 +11,10 @@ def train(model):
     model.train()
     # model.load_state_dict(torch.load(args.load, map_location='cuda'))
     batch_size = args.batch_size
-    loss_fn = torch.nn.BCELoss()
+    loss_fn = torch.nn.MSELoss()
+    # loss_fn = torch.nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    train_dataset = MyDataset("data/train/imgs")
+    train_dataset = MyDataset("temp_npy")
     # val_percent = 0.3
     # n_val = int(len(train_dataset) * val_percent)
     # n_train = len(train_dataset) - n_val
@@ -29,52 +30,30 @@ def train(model):
         step = 0
         for x, y in train_dataloader:
             inputs = x.to(device)
-            inputs = inputs.half()
+            inputs = inputs.float()
             labels = y.to(device)
-            labels = inputs.half()
+            labels = labels.float()
             optimizer.zero_grad()
             with autocast():
                 output = model(inputs)
                 loss = loss_fn(output, labels)
                 loss.backward()
                 optimizer.step()
+            # output = model(inputs)
+            # loss = loss_fn(output, labels)
+            # loss.backward()
+            # optimizer.step()
             epoch_loss += loss.item()
             step += 1
-            print(_)
-            print(__)
             print("%d/%d,train_loss:%0.5f" % (step, dataset_size // train_dataloader.batch_size, loss.item()))
         print("epoch %d loss:%0.5f" % (epoch, epoch_loss))
         torch.save(model.state_dict(), 'epoch_%d.pth' % epoch)
 
 
-# def test(model):
-#     model.eval()
-#     model.load_state_dict(torch.load(args.load, map_location='cuda'))
-#     test_dataset = TestDataset("data/test/imgs")
-#     test_dataloader = DataLoader(test_dataset)
-#     palette = [[0], [42], [85], [127], [170], [255]]
-#     with torch.no_grad():
-#         for x, x_path in test_dataloader:
-#             y = model(x.to(device))
-#             img_y = torch.squeeze(y).to('cpu').numpy() > 0.5
-#             img_y = img_y.transpose([1, 2, 0])
-#             img_y = onehot_to_mask(img_y, palette)
-#             print(x_path)
-#             cv2.imwrite(x_path[0][0:-4] + '_pred.png', img_y)
-
-
-# def onehot_to_mask(mask, palette):
-#     x = np.argmax(mask, axis=-1)
-#     colour_codes = np.array(palette)
-#     x = np.uint8(colour_codes[x.astype(np.uint8)])
-#     return x
-
-
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # device = torch.device('cpu')
 
-    model = nnvnet.VNet(nll=True).to(device).half()
+    model = nnvnet.VNet(nll=True).to(device)
     parser = argparse.ArgumentParser()
     parser.add_argument('--type', dest='type', type=str, default='train', help='train or test')
     parser.add_argument('--batch_size', dest='batch_size', type=int, default=1, help='batch_size')

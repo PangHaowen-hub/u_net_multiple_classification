@@ -36,7 +36,6 @@ class InputTransition(nn.Module):
         # x16 = torch.cat((x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x), 0)  # 将输入复制为16个通道，便于res
         # out = self.relu1(torch.add(out, x16))  # res操作
         out = self.relu1(out)  # res操作
-
         return out
 
 
@@ -85,28 +84,17 @@ class UpTransition(nn.Module):
 
 
 class OutputTransition(nn.Module):
-    def __init__(self, inChans, nll):
+    def __init__(self, inChans, outChans = 6):
         super(OutputTransition, self).__init__()
-        self.conv1 = nn.Conv3d(inChans, 2, kernel_size=3, padding=1)
-        self.bn1 = nn.modules.InstanceNorm3d(2, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)
-        self.conv2 = nn.Conv3d(2, 2, kernel_size=1)
+        self.conv1 = nn.Conv3d(inChans, 16, kernel_size=3, padding=1)
+        self.bn1 = nn.modules.InstanceNorm3d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)
+        self.conv2 = nn.Conv3d(16, outChans, kernel_size=1)
         self.relu1 = nn.LeakyReLU(negative_slope=0.01, inplace=True)
-        # if nll:
-        #     self.softmax = F.log_softmax
-        # else:
-        #     self.softmax = F.softmax
 
     def forward(self, x):
-        # convolve 32 down to 2 channels
         out = self.relu1(self.bn1(self.conv1(x)))
         out = self.conv2(out)
-
-        # make channels the last axis
-        # out = out.permute(0, 2, 3, 4, 1).contiguous()
-        # flatten
-        # out = out.view(out.numel() // 2, 2)
-        # out = self.softmax(out)
-        # treat channel 0 as the predicted output
+        out = torch.sigmoid(out)
         return out
 
 
@@ -122,22 +110,8 @@ class VNet(nn.Module):
         self.up_tr128 = UpTransition(256, 128, 2, dropout=True)
         self.up_tr64 = UpTransition(128, 64, 1)
         self.up_tr32 = UpTransition(64, 32, 1)
-        self.out_tr = OutputTransition(32, nll)
+        self.out_tr = OutputTransition(32, 6)
 
-    ## The network topology as described in the diagram in the VNet paper
-    # def __init__(self):
-    #     super(VNet, self).__init__()
-    #     self.in_tr =  InputTransition(16)
-    ## the number of convolutions in each layer corresponds to what is in the actual prototxt, not the intent
-    #     self.down_tr32 = DownTransition(16, 2)
-    #     self.down_tr64 = DownTransition(32, 3)
-    #     self.down_tr128 = DownTransition(64, 3)
-    #     self.down_tr256 = DownTransition(128, 3)
-    #     self.up_tr256 = UpTransition(256, 3)
-    #     self.up_tr128 = UpTransition(128, 3)
-    #     self.up_tr64 = UpTransition(64, 2)
-    #     self.up_tr32 = UpTransition(32, 1)
-    #     self.out_tr = OutputTransition(16)
     def forward(self, x):
         out16 = self.in_tr(x)
         out32 = self.down_tr32(out16)
@@ -156,7 +130,7 @@ class VNet(nn.Module):
 if __name__ == '__main__':
     net = VNet()
     net = net.cuda().half()
-    x = torch.randn(2, 1, 128, 128, 128)
+    x = torch.randn(1, 1, 128, 128, 128)
     x = x.cuda().half()
     y = net(x)
     print(y)

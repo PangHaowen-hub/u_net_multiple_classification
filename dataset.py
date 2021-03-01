@@ -1,14 +1,11 @@
 import torch.utils.data as data
-import os
-import PIL.Image as Image
-import SimpleITK as sitk
 from torchvision.transforms import transforms
 import numpy as np
 from os.path import splitext
 from os import listdir
 import logging
-import glob
 from torch.utils.data import DataLoader
+import SimpleITK as sitk
 
 
 class MyDataset(data.Dataset):
@@ -35,25 +32,20 @@ class MyDataset(data.Dataset):
         mask = npy[1]
         img = np.expand_dims(img, 0)
         mask = np.expand_dims(mask, 0)
-
-        # mask = Image.open(mask_file[0])
-        # img = Image.open(img_file[0])
-
         assert img.size == mask.size, \
             f'Image and mask {idx} should be the same size, but are {img.size} and {mask.size}'
+        # one_hot编码
+        class_num = 6
+        temp_mask = np.zeros((class_num, mask.shape[1], mask.shape[2], mask.shape[3]))  # one_hot编码类别数6
+        for i in range(class_num):
+            s0 = mask == i
+            s0 = s0.squeeze()
+            temp_mask[(i, s0)] = 1
+        # for j in range(6):
+        #     new_mask_img = sitk.GetImageFromArray(temp_mask[j])
+        #     sitk.WriteImage(new_mask_img, str(j) + '.nii.gz')
 
-        # mask = np.array(mask)
-        # mask = np.expand_dims(mask, axis=2)
-        # semantic_map = []
-        # palette = [[0], [42], [85], [127], [170], [255]]
-        # for colour in palette:
-        #     equality = np.equal(mask, colour)
-        #     class_map = np.all(equality, axis=-1)
-        #     semantic_map.append(class_map)
-        # mask = np.stack(semantic_map, axis=-1)
-        # img = self.images_transform(img)
-        # mask = self.masks_transform(mask)
-        return img, mask
+        return img, temp_mask
 
     def __len__(self):
         return len(self.ids)
@@ -62,4 +54,5 @@ class MyDataset(data.Dataset):
 if __name__ == '__main__':
     train_dataset = MyDataset("data/train/imgs")
     train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=0)
+    x = train_dataloader.dataset[0]
     print(train_dataloader)
